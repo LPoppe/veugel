@@ -72,7 +72,6 @@ class Day(object):
     def __init__(self, day, datapoints=()):
         self.day = day
         self.datapoints = list(filter(any, datapoints))
-
         self.remove_fake_gaps()
         self.remove_das_noise()
 
@@ -83,6 +82,7 @@ class Day(object):
         return [abs(from_ - to) for from_, to in self.get_gaps()]
 
     def get_das_mean(self):
+        print(self.day)
         return statistics.mean(d.duration_of_state for d in self.datapoints)
 
     def _get_gaps(self):
