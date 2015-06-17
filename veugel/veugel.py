@@ -5,6 +5,7 @@ import glob
 import json
 import os
 import multiprocessing
+import statistics
 import sys
 import re
 
@@ -80,6 +81,9 @@ class Day(object):
 
     def get_gap_lengths(self):
         return [abs(from_ - to) for from_, to in self.get_gaps()]
+
+    def get_das_mean(self):
+        return statistics.mean(d.duration_of_state for d in self.datapoints)
 
     def _get_gaps(self):
         # -1 basically means "we're not in a gap"
