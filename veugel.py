@@ -69,7 +69,7 @@ class Day(object):
     def get_gaps(self):
         return list(self._get_gaps())
 
-    def get_gaph_lengths(self):
+    def get_gap_lengths(self):
         return [abs(from_ - to) for from_, to in self.get_gaps()]
 
     def _get_gaps(self):
