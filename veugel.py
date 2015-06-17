@@ -1,13 +1,19 @@
 from collections import namedtuple
-import functools
-import glob
 from itertools import chain, count
+
+import random
+import glob
 import json
 import os
 import multiprocessing
 import pyexcel_ods3
 import sys
 import re
+
+from utils import LazyList
+
+# Treat sys.argv arguments in random order
+RANDOM_ORDER = False
 
 FIELDS = ["time", "continuity_time", "duration_of_state"]
 FILENAME_RE = re.compile("(?P<name>.+)_(?P<day>[0-9]+)(_.+)?\.ods")
@@ -173,12 +179,15 @@ class Day(object):
 class Veugel(object):
     def __init__(self, name, days=()):
         self.name = name
-        self.days = sorted(days, key=lambda d: d.day)
+        self.days = LazyList(days)
 
     @classmethod
     def from_folder(cls, path):
         pattern = os.path.join(os.path.abspath(path), "*.ods")
-        spreadsheets = sorted(glob.glob(pattern))
+        spreadsheets = sorted(glob.glob(pattern), key=lambda f: parse_filename(f)[1])
+
+        if RANDOM_ORDER:
+            random.shuffle(spreadsheets)
 
         if not spreadsheets:
             raise ValueError("No spreadsheets at {pattern}".format(**locals()))
@@ -189,6 +198,11 @@ class Veugel(object):
 
 
 if __name__ == "__main__":
-    for veugel in map(Veugel.from_folder, sys.argv[1:]):
+    dirs = sys.argv[1:]
+
+    if RANDOM_ORDER:
+        random.shuffle(dirs)
+
+    for veugel in map(Veugel.from_folder, dirs):
         for day in veugel.days:
             print("Veugel: {}, day: {}".format(veugel.name, day.day))
