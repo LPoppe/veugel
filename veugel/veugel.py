@@ -1,16 +1,17 @@
 from collections import namedtuple
 from itertools import chain, count
-
 import random
 import glob
 import json
 import os
 import multiprocessing
-import pyexcel_ods3
 import sys
 import re
 
-from utils import LazyList
+import pyexcel_ods3
+
+from veugel.utils import LazyList
+
 
 # Treat sys.argv arguments in random order
 RANDOM_ORDER = False
@@ -180,6 +181,13 @@ class Veugel(object):
     def __init__(self, name, days=()):
         self.name = name
         self.days = LazyList(days)
+
+    def get_day(self, day):
+        # O(N), fugly :-)
+        for d in self.days:
+            if d.day == day:
+                return d
+        raise IndexError("Day {day} does not exist for {self.name!r}".format(**locals()))
 
     @classmethod
     def from_folder(cls, path):

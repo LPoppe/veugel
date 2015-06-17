@@ -1,7 +1,9 @@
 
 
 class LazyList:
-    """http://www.logarithmic.net/pfh/blog/01193268742"""
+    """http://www.logarithmic.net/pfh/blog/01193268742
+
+    changes: Martijn Bastiaan"""
     def __init__(self, iterator):
         self.data = []
         self.iterator = iter(iterator)
