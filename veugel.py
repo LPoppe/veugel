@@ -13,6 +13,7 @@ FIELDS = ["time", "continuity_time", "duration_of_state"]
 FILENAME_RE = re.compile("(?P<name>.+)_(?P<day>[0-9]+)(_.+)?\.ods")
 FAKE_GAP_JUMP_THRESHOLD = 5 # milliseconds
 FAKE_GAP_LENGTH_THRESHOLD = 250
+DAS_NOISE_THRESHOLD = 400
 
 
 Datapoint = namedtuple("BaseDatapoint", FIELDS)
@@ -65,6 +66,7 @@ class Day(object):
         self.datapoints = list(filter(any, datapoints))
 
         self.remove_fake_gaps()
+        self.remove_das_noise()
 
     def get_gaps(self):
         return list(self._get_gaps())
@@ -164,6 +166,9 @@ class Day(object):
 
         return cls.from_ods(filename)
 
+    def remove_das_noise(self):
+        self.datapoints = [row for row in self.datapoints if row.duration_of_state <= DAS_NOISE_THRESHOLD]
+
 
 class Veugel(object):
     def __init__(self, name, days=()):
@@ -186,4 +191,4 @@ class Veugel(object):
 if __name__ == "__main__":
     for veugel in map(Veugel.from_folder, sys.argv[1:]):
         for day in veugel.days:
-            print(day.get_fake_gaps())
+            print("Veugel: {}, day: {}".format(veugel.name, day.day))
