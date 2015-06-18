@@ -122,7 +122,7 @@ class Day(object):
 
         # Does it have a jump?
         times = self.datapoints[from_:to]
-        for t1, t2 in zip([times[0]] + times, times):
+        for t1, t2 in zip(times[1:], times):
             if abs(t1.time - t2.time) > FAKE_GAP_JUMP_THRESHOLD:
                 return True
 
