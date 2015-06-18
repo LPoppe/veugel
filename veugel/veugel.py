@@ -13,7 +13,6 @@ import pyexcel_ods3
 
 from veugel.utils import LazyList
 
-
 # Treat sys.argv arguments in random order
 RANDOM_ORDER = False
 
@@ -56,13 +55,13 @@ def create_cache(path):
     json_filename = get_json_filename(path)
     _, day = parse_filename(path)
     sheets = pyexcel_ods3.get_data(path).values()
-    day = Day(day=day, datapoints=list(to_datapoints(sheets)))
+    data = json.dumps((day, FIELDS, list(to_datapoints(sheets))), indent=2)
 
     cache_dir = get_cache_dir(path)
     if not os.path.exists(cache_dir):
         os.mkdir(cache_dir)
 
-    open(json_filename, "w").write(day.to_json())
+    open(json_filename, "w").write(data)
 
 
 class Day(object):
