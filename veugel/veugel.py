@@ -6,6 +6,7 @@ import glob
 import json
 import os
 import multiprocessing
+import pickle
 import statistics
 import re
 
@@ -186,11 +187,10 @@ class Day(object):
 
 
 class Veugel(object):
-    def __init__(self, name, days=(), brother=None):
+    def __init__(self, name, days=()):
         log.info("Initialising {}".format(name))
         self.name = name
         self.days = list(days)
-        self.brother = brother
 
     def get_day(self, day):
         # O(N), fugly :-)
@@ -216,16 +216,11 @@ class Veugels(object):
     """Class for processing multiple veugels at once, quickly by using multiple threads
     and aggressive caching"""
     def __init__(self, folder=VEUGEL_DIR, threads=multiprocessing.cpu_count()):
-        self.pool = multiprocessing.Pool(threads)
         log.info("Getting veugels from {}".format(folder))
         folders = glob.glob(os.path.join(folder, "*/*"))
-
-        veugels = self.pool.map(Veugel.from_folder, folders)
+        pool = multiprocessing.Pool(threads)
+        veugels = pool.map(Veugel.from_folder, folders)
         self.veugels = {int(v.name.lstrip("ISO").lstrip("SELF")): v for v in veugels}
-
-        for veugel_id, brother_id in relational.BROTHERS.items():
-            self.veugels[veugel_id].brother = self.veugels[brother_id]
-            self.veugels[brother_id].brother = self.veugels[veugel_id]
 
     def get_isos(self):
         return [self.veugels[vid] for vid in relational.BROTHERS.keys()]
@@ -236,7 +231,19 @@ class Veugels(object):
     def get_by_id(self, veugel_id):
         return self.veugels[veugel_id]
 
+    @classmethod
+    def from_cache(self, folder=VEUGEL_DIR, threads=multiprocessing.cpu_count()):
+        cache_file = os.path.join(VEUGEL_DIR, "cache.pickle")
+
+        if os.path.exists(cache_file):
+            log.info("Using {} as cache file for all veugels".format(cache_file))
+            return pickle.load(open(cache_file, "rb"))
+
+        veugels = Veugels(folder=folder, threads=threads)
+        pickle.dump(veugels, open(cache_file, "wb"))
+        return veugels
+
 
 if __name__ == "__main__":
     logging.basicConfig(format='[%(asctime)s] %(message)s', level=logging.DEBUG)
-    Veugels(threads=1)
+    Veugels.from_cache()
