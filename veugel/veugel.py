@@ -223,7 +223,7 @@ class Veugels(object):
         veugels = self.pool.map(Veugel.from_folder, folders)
         self.veugels = {int(v.name.lstrip("ISO").lstrip("SELF")): v for v in veugels}
 
-        for veugel_id, brother_id in relational.BROTHERS:
+        for veugel_id, brother_id in relational.BROTHERS.items():
             self.veugels[veugel_id].brother = self.veugels[brother_id]
             self.veugels[brother_id].brother = self.veugels[veugel_id]
 
