@@ -19,7 +19,8 @@ RANDOM_ORDER = False
 FIELDS = ["time", "continuity_time", "duration_of_state"]
 FILENAME_RE = re.compile("(?P<name>.+)_(?P<day>[0-9]+)(_.+)?\.ods")
 FAKE_GAP_JUMP_THRESHOLD = 5 # milliseconds
-FAKE_GAP_LENGTH_THRESHOLD = 250
+FAKE_GAP_LENGTH_MAX = 250
+FAKE_GAP_LENGTH_MIN = 5
 DAS_NOISE_THRESHOLD = 400
 
 
@@ -82,7 +83,7 @@ class Day(object):
 
     def get_das_mean(self):
         print(self.day)
-        return statistics.mean(d.duration_of_state for d in self.datapoints)
+        return statistics.mean()
 
     def _get_gaps(self):
         # -1 basically means "we're not in a gap"
@@ -117,7 +118,10 @@ class Day(object):
             return True
 
         # Length of gap
-        if abs(from_ - to) > FAKE_GAP_LENGTH_THRESHOLD:
+        if abs(from_ - to) > FAKE_GAP_LENGTH_MAX:
+            return True
+
+        if abs(from_ - to) < FAKE_GAP_LENGTH_MIN:
             return True
 
         # Does it have a jump?

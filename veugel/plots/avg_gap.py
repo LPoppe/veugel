@@ -2,6 +2,7 @@ import sys
 
 from collections import OrderedDict
 from matplotlib import pyplot
+import statistics
 
 from veugel import relational
 from veugel.veugel import Veugel
@@ -12,29 +13,26 @@ __author__ = 'Linda Poppe'
 VEUGEL_DIR = "/home/linda/Sounddata/{label}/{num}/"
 
 
-def plot_avg_das(veugel):
+def plot_avg_gap(veugel):
     """
     :type veugel: Veugel
     :param min: int
     :param max: int
     """
     print(veugel.name)
-    #means_and_errors = ((d.day, d.get_das_mean(), d.get_das_error()) for d in veugel.days)
-    #days, means, errors = zip(*means_and_errors)
-    #pyplot.errorbar(x=list(days), y=list(means), yerr=errors, fmt='x')
 
-    means = OrderedDict((d.day, d.get_das_mean()) for d in veugel.days)
+    means = OrderedDict((d.day, statistics.mean(d.get_gap_lengths())) for d in veugel.days)
     pyplot.plot(list(means.keys()), list(means.values()), marker='x')
-    pyplot.ylabel('Mean DAS')
+    pyplot.ylabel('Mean gap length (ms)')
     pyplot.xlabel('DPH')
-    pyplot.ylim(0,150)
+    pyplot.ylim(0,100)
     pyplot.legend(["ISO "+str(veugel_number), "SELF "+str(brother_number)], loc=0)
+
 
 if __name__ == '__main__':
     for veugel_number in relational.BROTHERS:
         pyplot.figure()
         pyplot.gca().set_color_cycle(['red', 'blue'])
-
         brother_number = relational.BROTHERS[veugel_number]
 
         try:
@@ -51,8 +49,7 @@ if __name__ == '__main__':
 
 
 
-        plot_avg_das(veugel)
-        plot_avg_das(brother)
+        plot_avg_gap(veugel)
+        plot_avg_gap(brother)
 
-        pyplot.savefig("das_{veugel.name}_{brother.name}.png".format(**locals()), bbox_inches='tight')
-
+        pyplot.savefig("GAP_{veugel.name}_{brother.name}.png".format(**locals()), bbox_inches='tight')
