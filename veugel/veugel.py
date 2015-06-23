@@ -1,20 +1,21 @@
 from collections import namedtuple
 from itertools import chain, count
-import random
+import getpass
+import logging
 import glob
 import json
 import os
 import multiprocessing
 import statistics
-import sys
 import re
 
 import pyexcel_ods3
 
-from veugel.utils import LazyList
+import relational
 
-# Treat sys.argv arguments in random order
-RANDOM_ORDER = False
+log = logging.getLogger(__name__)
+
+VEUGEL_DIR = "/home/{}/Sounddata/".format(getpass.getuser())
 
 FIELDS = ["time", "continuity_time", "duration_of_state"]
 FILENAME_RE = re.compile("(?P<name>.+)_(?P<day>[0-9]+)(_.+)?\.ods")
@@ -24,7 +25,7 @@ FAKE_GAP_LENGTH_MIN = 5
 DAS_NOISE_THRESHOLD = 400
 
 
-Datapoint = namedtuple("BaseDatapoint", FIELDS)
+Datapoint = namedtuple("Datapoint", FIELDS)
 
 
 def parse_filename(filename):
@@ -185,9 +186,11 @@ class Day(object):
 
 
 class Veugel(object):
-    def __init__(self, name, days=()):
+    def __init__(self, name, days=(), brother=None):
+        log.info("Initialising {}".format(name))
         self.name = name
-        self.days = LazyList(days)
+        self.days = list(days)
+        self.brother = brother
 
     def get_day(self, day):
         # O(N), fugly :-)
@@ -201,9 +204,6 @@ class Veugel(object):
         pattern = os.path.join(os.path.abspath(path), "*.ods")
         spreadsheets = sorted(glob.glob(pattern), key=lambda f: parse_filename(f)[1])
 
-        if RANDOM_ORDER:
-            random.shuffle(spreadsheets)
-
         if not spreadsheets:
             raise ValueError("No spreadsheets at {pattern}".format(**locals()))
 
@@ -212,12 +212,31 @@ class Veugel(object):
         return Veugel(name, days=map(Day.from_ods, spreadsheets))
 
 
+class Veugels(object):
+    """Class for processing multiple veugels at once, quickly by using multiple threads
+    and aggressive caching"""
+    def __init__(self, folder=VEUGEL_DIR, threads=multiprocessing.cpu_count()):
+        self.pool = multiprocessing.Pool(threads)
+        log.info("Getting veugels from {}".format(folder))
+        folders = glob.glob(os.path.join(folder, "*/*"))
+
+        veugels = self.pool.map(Veugel.from_folder, folders)
+        self.veugels = {int(v.name.lstrip("ISO").lstrip("SELF")): v for v in veugels}
+
+        for veugel_id, brother_id in relational.BROTHERS:
+            self.veugels[veugel_id].brother = self.veugels[brother_id]
+            self.veugels[brother_id].brother = self.veugels[veugel_id]
+
+    def get_isos(self):
+        return [self.veugels[vid] for vid in relational.BROTHERS.keys()]
+
+    def get_selfs(self):
+        return [self.veugels[vid] for vid in relational.BROTHERS.values()]
+
+    def get_by_id(self, veugel_id):
+        return self.veugels[veugel_id]
+
+
 if __name__ == "__main__":
-    dirs = sys.argv[1:]
-
-    if RANDOM_ORDER:
-        random.shuffle(dirs)
-
-    for veugel in map(Veugel.from_folder, dirs):
-        for day in veugel.days:
-            print("Veugel: {}, day: {}".format(veugel.name, day.day))
+    logging.basicConfig(format='[%(asctime)s] %(message)s', level=logging.DEBUG)
+    Veugels(threads=1)
