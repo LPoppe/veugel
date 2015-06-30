@@ -11,8 +11,7 @@ import statistics
 import re
 
 import pyexcel_ods3
-
-import relational
+from veugel import relational
 
 log = logging.getLogger(__name__)
 
@@ -200,6 +199,19 @@ class Veugel(object):
         raise IndexError("Day {day} does not exist for {self.name!r}".format(**locals()))
 
     @classmethod
+    def from_id(cls, veugel_id):
+        path = os.path.join(VEUGEL_DIR, "*", str(veugel_id))
+        path = glob.glob(path)
+
+        if len(path) == 0:
+            raise ValueError("No veugel with id {} found at {}".format(veugel_id, VEUGEL_DIR))
+
+        if len(path) > 1:
+            raise ValueError("Found multiple veugels with same id at: {}".format(str(path)))
+
+        return cls.from_folder(path[0])
+
+    @classmethod
     def from_folder(cls, path):
         pattern = os.path.join(os.path.abspath(path), "*.ods")
         spreadsheets = sorted(glob.glob(pattern), key=lambda f: parse_filename(f)[1])
@@ -232,12 +244,17 @@ class Veugels(object):
         return self.veugels[veugel_id]
 
     @classmethod
-    def from_cache(self, folder=VEUGEL_DIR, threads=multiprocessing.cpu_count()):
+    def from_cache(cls, folder=VEUGEL_DIR, threads=multiprocessing.cpu_count() // 2):
         cache_file = os.path.join(VEUGEL_DIR, "cache.pickle")
 
         if os.path.exists(cache_file):
             log.info("Using {} as cache file for all veugels".format(cache_file))
-            return pickle.load(open(cache_file, "rb"))
+
+            try:
+                return pickle.load(open(cache_file, "rb"))
+            except:
+                os.remove(cache_file)
+                return cls.from_cache(folder, threads)
 
         veugels = Veugels(folder=folder, threads=threads)
         pickle.dump(veugels, open(cache_file, "wb"))

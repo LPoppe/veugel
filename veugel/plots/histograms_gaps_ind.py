@@ -2,7 +2,7 @@ from itertools import count
 from matplotlib import pyplot
 from collections import defaultdict
 from veugel import relational
-from veugel.veugel import Veugel
+from veugel.veugel import Veugel, Veugels
 
 __author__ = 'Linda Poppe'
 
@@ -29,25 +29,17 @@ def get_hist_data(veugel):
     """
     foodict = foo(veugel)
 
-    print(veugel.name)
-
     for n in [50, 60, 70, 90, 120]:
         yield foodict[n]
 
 if __name__ == '__main__':
-    for veugel_number in list(relational.BROTHERS):
-        brother_number = relational.BROTHERS[veugel_number]
+    vs = Veugels.from_cache()
 
+    for veugel, brother in zip(vs.get_isos(), vs.get_selfs()):
         # Create a figure instance
         fig, axes = pyplot.subplots(nrows=5, ncols=2, figsize=(10, 14))
         ax0, ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, ax9 = axes.flat
         n_bins = 20
-
-        try:
-            veugel  = Veugel.from_folder(VEUGEL_DIR.format(label="ISO",  num=veugel_number))
-            brother = Veugel.from_folder(VEUGEL_DIR.format(label="SELF", num=brother_number))
-        except:
-            continue
 
         data_50, data_60, data_70, data_90, data_120 = get_hist_data(veugel)
 
@@ -68,7 +60,6 @@ if __name__ == '__main__':
 
         data_50, data_60, data_70, data_90, data_120 = get_hist_data(brother)
 
-
         ax1.hist(data_50, n_bins, histtype='step', fill=True)
         ax1.set_title('{brother.name} gap length at 50DPH'.format(**locals()))
 
@@ -83,7 +74,6 @@ if __name__ == '__main__':
 
         ax9.hist(data_120, n_bins, histtype='step', fill=True)
         ax9.set_title('{brother.name} gap length at 120DPH'.format(**locals()))
-
 
         fig.suptitle("{veugel.name} / {brother.name}".format(**locals()))
         fig.savefig("gap_hist_{veugel.name}_{brother.name}.png".format(**locals()))
