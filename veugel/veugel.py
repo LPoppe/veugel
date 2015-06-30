@@ -1,5 +1,9 @@
 import logging
 import statistics
+import numpy
+
+from veugel import cache
+from veugel import relational
 
 log = logging.getLogger(__name__)
 
@@ -7,7 +11,7 @@ class Day(object):
     """
     Represents a day worth of data. I.e., the merged sheets of an ODS file.
     """
-    def __init__(self, daynr, rows=()):
+    def __init__(self, daynr, rows):
         """
         :type daynr: int
         :type rows: numpy.ndarray
@@ -16,10 +20,10 @@ class Day(object):
         self.rows = rows
 
     def get_das_median(self):
-        return self.rows.median("duration_of_state")
+        return self.rows["duration_of_state"].median()
 
     def get_das_mean(self):
-        return self.rows.mean("duration_of_state")
+        return self.rows["duration_of_state"].mean()
 
     def get_gap_length_mean(self):
         return statistics.mean(self.get_gap_lengths())
@@ -36,23 +40,31 @@ class Day(object):
                 yield gap_length
                 gap_length = 0
 
+    @classmethod
+    def from_numpy_file(cls, daynr, path):
+        return Day(daynr, numpy.load(open(path, "rb")))
+
 
 class Veugel(object):
-    def __init__(self, name, days):
-        self.name = name
+    def __init__(self, id, days):
+        self.id = id
         self.days = days
+        self._days = {d.daynr: d for d in days}
 
-    def get_day(self, day):
-        """
-        :type day: int
-        """
-        # O(N), fugly :-)
-        for d in self.days:
-            if d.day == day:
-                return d
-        raise IndexError("Day {day} does not exist for {self.name!r}".format(**locals()))
+    @property
+    def name(self):
+        category = "ISO" if id in relational.BROTHERS else "SELF"
+        return "{}{}".format(category, self.id)
+
+    def get_day(self, daynr):
+        return self._days[daynr]
+
+    @classmethod
+    def from_id(cls, id):
+        days = cache.get_index_files()[id]
+        days = [Day.from_numpy_file(day, path) for day, path in days.items()]
+        return Veugel(id, days)
 
 
 if __name__ == "__main__":
     logging.basicConfig(format='[%(asctime)s] %(message)s', level=logging.DEBUG)
-    Veugels.from_cache()

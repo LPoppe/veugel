@@ -1,79 +1,43 @@
 from itertools import count
 from matplotlib import pyplot
-from collections import defaultdict
 from veugel import relational
-from veugel.veugel import Veugel, Veugels
+from veugel.analyse import analyse
 
-__author__ = 'Linda Poppe'
+BUCKETS = [50, 60, 70, 90, 120]
+N_BINS = 20
 
 
-VEUGEL_DIR = "/home/linda/Sounddata/{label}/{num}/"
-
-def to_vijfvoud(day):
+def to_quintuple(day):
     for bucket in count(0, 5):
         if bucket - 2.5 < day <= bucket + 2.5:
             return bucket
 
-def foo(veugel):
-    a = {to_vijfvoud(day.day): day.get_gap_lengths() for day in veugel.days}
-    print(a)
-    return a
+def get_quintuple_map(veugel):
+    return {to_quintuple(day.daynr): list(day.get_gap_lengths()) for day in veugel.days}
 
 def get_hist_data(veugel):
-    """
+    quintuple_map = get_quintuple_map(veugel)
 
-    :rtype : object
-    :type veugel: Veugel
-    :param min: int
-    :param max: int
-    """
-    foodict = foo(veugel)
+    for n in BUCKETS:
+        yield quintuple_map[n]
 
-    for n in [50, 60, 70, 90, 120]:
-        yield foodict[n]
+def aggregate(iso, self):
+    return iso.name, list(get_hist_data(iso)), self.name, list(get_hist_data(self))
+
+def plot(bins):
+    for iso_name, iso_bins, self_name, self_bins in bins:
+        fig, axes = pyplot.subplots(nrows=len(BUCKETS), ncols=2, figsize=(10, 14))
+
+        for bucketnr, axn in enumerate(range(0, len(axes.flat), 2)):
+            axes.flat[axn].hist(iso_bins[bucketnr], N_BINS, histtype='step', fill=True)
+            axes.flat[axn].set_title('{} gap length at {}DPH'.format(iso_name, BUCKETS[bucketnr]))
+
+        for bucketnr, axn in enumerate(range(1, len(axes.flat), 2)):
+            axes.flat[axn].hist(self_bins[bucketnr], N_BINS, histtype='step', fill=True)
+            axes.flat[axn].set_title('{} gap length at {}DPH'.format(self_name, BUCKETS[bucketnr]))
+
+        fig.suptitle("{iso_name} / {self_name}".format(**locals()))
+        fig.savefig("gap_hist_{iso_name}_{self_name}.png".format(**locals()))
 
 if __name__ == '__main__':
-    vs = Veugels.from_cache()
-
-    for veugel, brother in zip(vs.get_isos(), vs.get_selfs()):
-        # Create a figure instance
-        fig, axes = pyplot.subplots(nrows=5, ncols=2, figsize=(10, 14))
-        ax0, ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, ax9 = axes.flat
-        n_bins = 20
-
-        data_50, data_60, data_70, data_90, data_120 = get_hist_data(veugel)
-
-        ax0.hist(data_50, n_bins, histtype='step', fill=True)
-        ax0.set_title('{veugel.name} gap length at 50DPH'.format(**locals()))
-
-        ax2.hist(data_60, n_bins, histtype='step', fill=True)
-        ax2.set_title('{veugel.name} gap length at 60DPH'.format(**locals()))
-
-        ax4.hist(data_70, n_bins, histtype='step', fill=True)
-        ax4.set_title('{veugel.name} gap length at 70DPH'.format(**locals()))
-
-        ax6.hist(data_90, n_bins, histtype='step', fill=True)
-        ax6.set_title('{veugel.name} gap length at 90DPH'.format(**locals()))
-
-        ax8.hist(data_120, n_bins, histtype='step', fill=True)
-        ax8.set_title('{veugel.name} gap length at 120DPH'.format(**locals()))
-
-        data_50, data_60, data_70, data_90, data_120 = get_hist_data(brother)
-
-        ax1.hist(data_50, n_bins, histtype='step', fill=True)
-        ax1.set_title('{brother.name} gap length at 50DPH'.format(**locals()))
-
-        ax3.hist(data_60, n_bins, histtype='step', fill=True)
-        ax3.set_title('{brother.name} gap length at 60DPH'.format(**locals()))
-
-        ax5.hist(data_70, n_bins, histtype='step', fill=True)
-        ax5.set_title('{brother.name} gap length at 70DPH'.format(**locals()))
-
-        ax7.hist(data_90, n_bins, histtype='step', fill=True)
-        ax7.set_title('{brother.name} gap length at 90DPH'.format(**locals()))
-
-        ax9.hist(data_120, n_bins, histtype='step', fill=True)
-        ax9.set_title('{brother.name} gap length at 120DPH'.format(**locals()))
-
-        fig.suptitle("{veugel.name} / {brother.name}".format(**locals()))
-        fig.savefig("gap_hist_{veugel.name}_{brother.name}.png".format(**locals()))
+    analyse(relational.BROTHERS.items(), plot, aggregate)

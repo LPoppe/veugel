@@ -11,8 +11,10 @@ import multiprocessing
 import pickle
 import collections
 import re
+
 import numpy
 import pyexcel_ods3
+
 from veugel.filters import all_filters
 
 THREADS = int(os.environ.get("THREADS", multiprocessing.cpu_count()))
