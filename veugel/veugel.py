@@ -1,264 +1,56 @@
-from collections import namedtuple
-from itertools import chain, count
-import getpass
 import logging
-import glob
-import json
-import os
-import multiprocessing
-import pickle
 import statistics
-import re
-
-import pyexcel_ods3
-from veugel import relational
 
 log = logging.getLogger(__name__)
-
-VEUGEL_DIR = "/home/{}/Sounddata/".format(getpass.getuser())
-
-FIELDS = ["time", "continuity_time", "duration_of_state"]
-FILENAME_RE = re.compile("(?P<name>.+)_(?P<day>[0-9]+)(_.+)?\.ods")
-FAKE_GAP_JUMP_THRESHOLD = 5 # milliseconds
-FAKE_GAP_LENGTH_MAX = 250
-FAKE_GAP_LENGTH_MIN = 5
-DAS_NOISE_THRESHOLD = 400
-
-
-Datapoint = namedtuple("Datapoint", FIELDS)
-
-
-def parse_filename(filename):
-    """Parse filename of the form "ISO3331_70_gaps" to a tuple of ("ISO3331", 70)"""
-    match = FILENAME_RE.match(filename).groupdict()
-    return match["name"], int(match["day"])
-
-def to_datapoints(sheets):
-    for sheet in map(iter, sheets):
-        names = [n.lower() for n in next(sheet)]
-        for row in sheet:
-            rowdict = dict(zip(names, row))
-            values = [rowdict[field] for field in FIELDS]
-            yield Datapoint(*values)
-
-def get_json_filename(path):
-    _, filename = split_path(path)
-    return os.path.join(get_cache_dir(path), "{}.json".format(filename[:-4]))
-
-def get_cache_dir(filename):
-    dir, _ = split_path(filename)
-    return os.path.join(dir, "cache")
-
-def split_path(path):
-    """Returns a tuple with (dir, filename)"""
-    return path.rsplit("/", 1)
-
-def create_cache(path):
-    json_filename = get_json_filename(path)
-    _, day = parse_filename(path)
-    sheets = pyexcel_ods3.get_data(path).values()
-    data = json.dumps((day, FIELDS, list(to_datapoints(sheets))), indent=2)
-
-    cache_dir = get_cache_dir(path)
-    if not os.path.exists(cache_dir):
-        os.mkdir(cache_dir)
-
-    open(json_filename, "w").write(data)
-
 
 class Day(object):
     """
     Represents a day worth of data. I.e., the merged sheets of an ODS file.
     """
-    def __init__(self, day, datapoints=()):
-        self.day = day
-        self.datapoints = list(filter(any, datapoints))
-        self.remove_fake_gaps()
-        self.remove_das_noise()
+    def __init__(self, daynr, rows=()):
+        """
+        :type daynr: int
+        :type rows: numpy.ndarray
+        """
+        self.daynr = daynr
+        self.rows = rows
 
-    def get_gaps(self):
-        return list(self._get_gaps())
-
-    def get_gap_lengths(self):
-        return [abs(from_ - to) for from_, to in self.get_gaps()]
+    def get_das_median(self):
+        return self.rows.median("duration_of_state")
 
     def get_das_mean(self):
-        print(self.day)
-        return statistics.mean()
+        return self.rows.mean("duration_of_state")
 
-    def _get_gaps(self):
-        # -1 basically means "we're not in a gap"
-        gap_start = -1
+    def get_gap_length_mean(self):
+        return statistics.mean(self.get_gap_lengths())
 
-        for rownr, row in zip(count(), self.datapoints):
-            if -0.01 < row.continuity_time < 0.01:
-                if gap_start == -1:
-                    gap_start = rownr
-            elif gap_start != -1:
-                yield (gap_start, rownr)
-                gap_start = -1
+    def get_gap_length_median(self):
+        return statistics.median(self.get_gap_lengths())
 
-        # If we're still in a gap when file ended, yield the gap
-        if gap_start != -1:
-            yield (gap_start, len(self.datapoints))
-
-    def _is_fake_gap(self, gap):
-        """
-        Determines if a gap is fake
-        :param gap: (from, to)
-        :return: boolean
-        """
-        from_, to = gap
-
-        # Beginning of file
-        if from_ == 0:
-            return True
-
-        # End of file
-        if to == len(self.datapoints):
-            return True
-
-        # Length of gap
-        if abs(from_ - to) > FAKE_GAP_LENGTH_MAX:
-            return True
-
-        if abs(from_ - to) < FAKE_GAP_LENGTH_MIN:
-            return True
-
-        # Does it have a jump?
-        times = self.datapoints[from_:to]
-        for t1, t2 in zip(times[1:], times):
-            if abs(t1.time - t2.time) > FAKE_GAP_JUMP_THRESHOLD:
-                return True
-
-        return False
-
-    def get_fake_gaps(self):
-        """
-        Fake gaps are gaps:
-
-            1. At the beginning
-            2. At the very end
-            3. Having a row 'jumping' in time, i.e., more than 'threshold' milliseconds
-        """
-        return list(filter(self._is_fake_gap, self.get_gaps()))
-
-    def remove_fake_gaps(self):
-        self.remove_gaps(self.get_fake_gaps())
-
-    def remove_gaps(self, gaps):
-        """
-        Remove gaps from datapoints
-
-        :param gaps: [(from, to)]
-        """
-        offending_rows = set(chain(*[range(from_, to) for from_, to in gaps]))
-        datapoints = [row for n, row in enumerate(self.datapoints) if n not in offending_rows]
-        self.datapoints = datapoints
-
-    def to_json(self):
-        return json.dumps((self.day, FIELDS, self.datapoints), indent=2)
-
-    @classmethod
-    def from_json(cls, content):
-        day, fields, datapoints = json.loads(content)
-        assert fields == FIELDS, "Cache invalid. Remove cache folders?"
-        return Day(day=day, datapoints=(Datapoint(*values) for values in datapoints))
-
-    @classmethod
-    def from_ods(cls, filename):
-        # Can we use the cached version?
-        json_filename = get_json_filename(filename)
-        if os.path.exists(json_filename):
-            return cls.from_json(open(json_filename).read())
-
-        # We can't use the cached version, use external process to create caches (because
-        # pyexcel_ods3 files do not get garbage collected..)
-        print("Parsing {}".format(os.path.basename(filename)))
-        p = multiprocessing.Process(target=create_cache, args=(filename,))
-        p.start()
-        p.join()
-
-        return cls.from_ods(filename)
-
-    def remove_das_noise(self):
-        self.datapoints = [row for row in self.datapoints if row.duration_of_state <= DAS_NOISE_THRESHOLD]
+    def get_gap_lengths(self):
+        gap_length = 0
+        for ct in self.rows["continuity_time"]:
+            if -0.01 < ct < 0.01:
+                gap_length += 1
+            elif gap_length:
+                yield gap_length
+                gap_length = 0
 
 
 class Veugel(object):
-    def __init__(self, name, days=()):
-        log.info("Initialising {}".format(name))
+    def __init__(self, name, days):
         self.name = name
-        self.days = list(days)
+        self.days = days
 
     def get_day(self, day):
+        """
+        :type day: int
+        """
         # O(N), fugly :-)
         for d in self.days:
             if d.day == day:
                 return d
         raise IndexError("Day {day} does not exist for {self.name!r}".format(**locals()))
-
-    @classmethod
-    def from_id(cls, veugel_id):
-        path = os.path.join(VEUGEL_DIR, "*", str(veugel_id))
-        path = glob.glob(path)
-
-        if len(path) == 0:
-            raise ValueError("No veugel with id {} found at {}".format(veugel_id, VEUGEL_DIR))
-
-        if len(path) > 1:
-            raise ValueError("Found multiple veugels with same id at: {}".format(str(path)))
-
-        return cls.from_folder(path[0])
-
-    @classmethod
-    def from_folder(cls, path):
-        pattern = os.path.join(os.path.abspath(path), "*.ods")
-        spreadsheets = sorted(glob.glob(pattern), key=lambda f: parse_filename(f)[1])
-
-        if not spreadsheets:
-            raise ValueError("No spreadsheets at {pattern}".format(**locals()))
-
-        first_filename = spreadsheets[0].split("/")[-1]
-        name, _ = parse_filename(first_filename)
-        return Veugel(name, days=map(Day.from_ods, spreadsheets))
-
-
-class Veugels(object):
-    """Class for processing multiple veugels at once, quickly by using multiple threads
-    and aggressive caching"""
-    def __init__(self, folder=VEUGEL_DIR, threads=multiprocessing.cpu_count()):
-        log.info("Getting veugels from {}".format(folder))
-        folders = glob.glob(os.path.join(folder, "*/*"))
-        pool = multiprocessing.Pool(threads)
-        veugels = pool.map(Veugel.from_folder, folders)
-        self.veugels = {int(v.name.lstrip("ISO").lstrip("SELF")): v for v in veugels}
-
-    def get_isos(self):
-        return [self.veugels[vid] for vid in relational.BROTHERS.keys()]
-
-    def get_selfs(self):
-        return [self.veugels[vid] for vid in relational.BROTHERS.values()]
-
-    def get_by_id(self, veugel_id):
-        return self.veugels[veugel_id]
-
-    @classmethod
-    def from_cache(cls, folder=VEUGEL_DIR, threads=multiprocessing.cpu_count() // 2):
-        cache_file = os.path.join(VEUGEL_DIR, "cache.pickle")
-
-        if os.path.exists(cache_file):
-            log.info("Using {} as cache file for all veugels".format(cache_file))
-
-            try:
-                return pickle.load(open(cache_file, "rb"))
-            except:
-                os.remove(cache_file)
-                return cls.from_cache(folder, threads)
-
-        veugels = Veugels(folder=folder, threads=threads)
-        pickle.dump(veugels, open(cache_file, "wb"))
-        return veugels
 
 
 if __name__ == "__main__":
