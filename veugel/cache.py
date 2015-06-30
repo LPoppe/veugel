@@ -8,7 +8,7 @@ Note that the numpy dumps
 import glob
 import os
 import multiprocessing
-import json
+import pickle
 import collections
 import re
 import numpy
@@ -20,7 +20,7 @@ THREADS = int(os.environ.get("THREADS", multiprocessing.cpu_count()))
 # Directories / paths
 HOME_DIR = os.path.expanduser("~/Sounddata")
 CACHE_DIR = os.path.join(HOME_DIR, "cache")
-CACHE_INDEX = os.path.join(CACHE_DIR, "index.json")
+CACHE_INDEX = os.path.join(CACHE_DIR, "index.pickle")
 FILENAME_RE = re.compile("(?P<type>SELF|ISO)(?P<id>[0-9]+)_(?P<day>[0-9]+)(_.+)?\.ods$")
 
 # Filter constants
@@ -46,27 +46,29 @@ def create_cache(path):
     veugel_id = int(match["id"])
     day = int(match["day"])
 
-    # Parse ods files
-    print(path)
-    sheets = pyexcel_ods3.get_data(path).values()
-
-    # FILTERING HERE...
-    rows = all_filters(to_rows(sheets))
-
-    # Create cache dir if it not exists
-    if not os.path.exists(CACHE_DIR):
-        os.mkdir(CACHE_DIR)
-
-    # Save numpy array in cache file
-    array = numpy.array(list(rows), dtype=list(FIELDS.items()))
     cache_file = os.path.join(CACHE_DIR, "{veugel_id}_{day}.npy".format(**locals()))
-    numpy.save(open(cache_file, "wb"), array)
+    if not os.path.exists(cache_file):
+        # Parse ods files
+        print("Parsing {path}..".format(path=path))
+        sheets = pyexcel_ods3.get_data(path).values()
+
+        # FILTERING HERE...
+        rows = all_filters(to_rows(sheets))
+
+        # Create cache dir if it not exists
+        if not os.path.exists(CACHE_DIR):
+            os.mkdir(CACHE_DIR)
+
+        # Save numpy array in cache file
+        array = numpy.array(list(rows), dtype=list(FIELDS.items()))
+        numpy.save(open(cache_file, "wb"), array)
+
     return veugel_id, day, cache_file
 
 
 def get_index_files():
     if os.path.exists(CACHE_INDEX):
-        return json.load(open(CACHE_INDEX))
+        return pickle.load(open(CACHE_INDEX))
 
     # We need to create the indices first
     ods_files = glob.glob(os.path.join(HOME_DIR, "*/*/*.ods"))
@@ -76,6 +78,6 @@ def get_index_files():
     for veugel_id, day, path in pool.imap_unordered(create_cache, ods_files):
         cache_files[veugel_id][day] = path
 
-    json.dump(cache_files, open(CACHE_INDEX, "w"))
+    pickle.dump(cache_files, open(CACHE_INDEX, "w"))
 
     return cache_files
