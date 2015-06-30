@@ -64,17 +64,24 @@ def create_cache(path):
     return cache_file
 
 
+def chunks(l, n):
+    """Yield successive n-sized chunks from l."""
+    for i in range(0, len(l), n):
+        yield l[i:i+n]
+
+
 def get_index_files():
     if os.path.exists(CACHE_INDEX):
         return json.load(open(CACHE_INDEX))
 
     # We need to create the indices first
-    pool = multiprocessing.Pool(THREADS)
     ods_files = glob.glob(os.path.join(HOME_DIR, "*/*/*.ods"))
     cache_files = collections.defaultdict(dict)
 
-    for veugel_id, day, path in pool.map(create_cache, ods_files):
-        cache_files[veugel_id][day] = path
+    for chunk in chunks(ods_files, THREADS):
+        pool = multiprocessing.Pool(THREADS)
+        for veugel_id, day, path in pool.map(create_cache, chunk):
+            cache_files[veugel_id][day] = path
 
     json.dump(cache_files, open(CACHE_INDEX, "w"))
 
