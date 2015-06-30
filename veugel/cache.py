@@ -78,6 +78,6 @@ def get_index_files():
     for veugel_id, day, path in pool.imap_unordered(create_cache, ods_files):
         cache_files[veugel_id][day] = path
 
-    pickle.dump(cache_files, open(CACHE_INDEX, "w"))
+    pickle.dump(cache_files, open(CACHE_INDEX, "wb"))
 
     return cache_files
