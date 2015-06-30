@@ -68,7 +68,7 @@ def create_cache(path):
 
 def get_index_files():
     if os.path.exists(CACHE_INDEX):
-        return pickle.load(open(CACHE_INDEX))
+        return pickle.load(open(CACHE_INDEX, "rb"))
 
     # We need to create the indices first
     ods_files = glob.glob(os.path.join(HOME_DIR, "*/*/*.ods"))
