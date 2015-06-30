@@ -73,7 +73,7 @@ def get_index_files():
     cache_files = collections.defaultdict(dict)
     pool = multiprocessing.Pool(THREADS, maxtasksperchild=1)
 
-    for veugel_id, day, path in pool.map(create_cache, ods_files):
+    for veugel_id, day, path in pool.imap_unordered(create_cache, ods_files):
         cache_files[veugel_id][day] = path
 
     json.dump(cache_files, open(CACHE_INDEX, "w"))
