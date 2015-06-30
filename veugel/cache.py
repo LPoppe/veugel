@@ -61,7 +61,7 @@ def create_cache(path):
     array = numpy.array(list(rows), dtype=list(FIELDS.items()))
     cache_file = os.path.join(CACHE_DIR, "{veugel_id}_{day}.npy".format(**locals()))
     numpy.save(open(cache_file, "wb"), array)
-    return cache_file
+    return veugel_id, day, cache_file
 
 
 def chunks(l, n):
