@@ -27,12 +27,15 @@ class Day(object):
         return self.rows["duration_of_state"].mean()
 
     def get_gap_length_mean(self):
-        return statistics.mean(self.get_gap_lengths())
+        return numpy.mean(self.get_gap_lengths())
 
     def get_gap_length_median(self):
-        return statistics.median(self.get_gap_lengths())
+        return numpy.median(self.get_gap_lengths())
 
     def get_gap_lengths(self):
+        return numpy.array(list(self._get_gap_lengths()))
+
+    def _get_gap_lengths(self):
         gap_length = 0
         for ct in self.rows["continuity_time"]:
             if -0.01 < ct < 0.01:
