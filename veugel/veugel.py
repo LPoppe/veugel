@@ -1,4 +1,5 @@
 import logging
+from operator import attrgetter
 import statistics
 import numpy
 
@@ -48,7 +49,7 @@ class Day(object):
 class Veugel(object):
     def __init__(self, id, days):
         self.id = id
-        self.days = days
+        self.days = sorted(days, key=attrgetter("daynr"))
         self._days = {d.daynr: d for d in days}
 
     @property

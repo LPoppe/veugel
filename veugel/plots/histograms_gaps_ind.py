@@ -21,9 +21,7 @@ def get_hist_data(veugel):
 def aggregate(iso, self):
     return iso.name, list(get_hist_data(iso)), self.name, list(get_hist_data(self))
 
-def plot(aggr):
-    iso_name, iso_bins, self_name, self_bins = aggr
-
+def plot(iso_name, iso_bins, self_name, self_bins):
     fig, axes = pyplot.subplots(nrows=len(BUCKETS), ncols=2, figsize=(10, 14))
 
     for bucketnr, axn in enumerate(range(0, len(axes.flat), 2)):

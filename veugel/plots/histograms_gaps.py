@@ -3,21 +3,10 @@ from matplotlib import pyplot
 from collections import defaultdict
 from veugel import relational
 from veugel.veugel import Veugel
-
-
-__author__ = 'Linda Poppe'
-
-VEUGEL_DIR = "/home/linda/Sounddata/{label}/{num}/"
-
-def to_vijfvoud(day):
-    for bucket in count(0, 5):
-        if bucket - 2.5 < day <= bucket + 2.5:
-            return bucket
+from veugel.plots.histograms_gaps_ind import to_quintuple
 
 def foo(veugel):
-    a = {to_vijfvoud(day.day): day.get_gap_lengths() for day in veugel.days}
-    print(a)
-    return a
+    return {to_quintuple(day.day): day.get_gap_lengths() for day in veugel.days}
 
 def merge_foos(foos):
     uberfoo = defaultdict(list)
