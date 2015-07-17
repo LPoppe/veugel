@@ -2,7 +2,7 @@ import multiprocessing
 
 from itertools import repeat
 from veugel.veugel import Veugel
-
+from veugel.cache import get_index_files
 
 def default_aggregator(*veugels):
     return veugels
@@ -18,6 +18,7 @@ def plot(plotter__args):
     return plotter(*args)
 
 def analyse(veugel_ids, plotter, aggregator=default_aggregator, plot_threaded=False):
+    get_index_files()
     pool = multiprocessing.Pool(multiprocessing.cpu_count())
     aggregated = pool.imap(aggregate, zip(repeat(aggregator), veugel_ids))
     plotted = pool.imap(plot, zip(repeat(plotter), aggregated if plot_threaded else [aggregated]))

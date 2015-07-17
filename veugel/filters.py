@@ -4,7 +4,7 @@ Contains all filters (removal of fake gaps, etc), which operates on Row objects.
 
 FAKE_GAP_JUMP_THRESHOLD = 5 # milliseconds
 FAKE_GAP_LENGTH_MAX = 250
-FAKE_GAP_LENGTH_MIN = 5
+FAKE_GAP_LENGTH_MIN = 15
 DAS_NOISE_THRESHOLD = 400
 
 __all__ = (
