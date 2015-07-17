@@ -13,13 +13,16 @@ def aggregate(aggregator__veugel_ids):
     veugels = map(Veugel.from_id, veugel_ids)
     return aggregator(*veugels)
 
+def default_plotter(*args):
+    return None
+
 def plot(plotter__args):
     plotter, args = plotter__args
     return plotter(*args)
 
-def analyse(veugel_ids, plotter, aggregator=default_aggregator, plot_threaded=False):
+def analyse(veugel_ids, plotter=default_plotter, aggregator=default_aggregator, plot_threaded=False):
     get_index_files()
     pool = multiprocessing.Pool(multiprocessing.cpu_count())
     aggregated = pool.imap(aggregate, zip(repeat(aggregator), veugel_ids))
-    plotted = pool.imap(plot, zip(repeat(plotter), aggregated if plot_threaded else [aggregated]))
+    plotted = pool.imap(plot, zip(repeat(plotter), aggregated if plot_threaded else [list(aggregated)]))
     return list(plotted)
