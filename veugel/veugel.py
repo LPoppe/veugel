@@ -57,7 +57,7 @@ class Veugel(object):
 
     @property
     def name(self):
-        category = "ISO" if id in relational.BROTHERS else "SELF"
+        category = "ISO" if self.id in relational.BROTHERS else "SELF"
         return "{}{}".format(category, self.id)
 
     def get_day(self, daynr):
